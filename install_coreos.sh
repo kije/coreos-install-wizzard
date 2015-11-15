@@ -69,7 +69,7 @@ if [ $user_wants_wizzard -eq 1 ];
 	read USERNAME
 
 	echo "Setup password for user $USERNAME:"
-	PASSWORD=$(sudo openssl passwd -1)
+	PASSWORD=$(openssl passwd -1)
 
 	echo "users:" >> $CLOUD_CONFIG_FILE_PATH
 	echo "  - name: $USERNAME" >> $CLOUD_CONFIG_FILE_PATH
