@@ -35,7 +35,13 @@ function ask_user_yes_no {
 	return $return_val
 }
 
-#todo make this script useable for everyone (-> publish it on github)
+
+# check if root
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
 
 # prepare
 echo "prepare install..."
