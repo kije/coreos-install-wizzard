@@ -2,7 +2,7 @@
 A instalation wizzard for coreos on linux
 
 
-# still under developüment and untested
+# still under development and untested
 
 # contribution
 feel free to fork this repro and provide your own custom wizzard
