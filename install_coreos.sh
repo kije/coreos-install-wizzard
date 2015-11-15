@@ -1,11 +1,39 @@
 #!/bin/bash
-
+ 
 TMP_DIR_PATH="$(readlink -f .)/coreos_install"
 COREOS_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/coreos/init/master/bin/coreos-install"
 COREOS_INSTALL_SCRIPT_NAME="coreos-install"
 COREOS_INSTALL_SCRIPT_PATH="$TMP_DIR_PATH/$COREOS_INSTALL_SCRIPT_NAME"
 CLOUD_CONFIG_FILE_PATH="$TMP_DIR_PATH/cloud-config-file"
 
+
+# functions
+function ask_user_yes_no {
+	local repeate_step=1
+	local user_answer=""
+	local return_val=0
+
+	while [ $repeate_step -eq 1 ]
+	do
+		echo "$1 (y/n) "
+		read user_answer
+
+		if [ "$user_answer" == "y" ];
+			then
+			return_val=1
+			repeate_step=0
+		elif [ $user_answer == "n" ];
+			then
+			return_val=0
+			repeate_step=0
+		else
+			echo "Unrecognized answer. Please enter y or n!"
+			repeate_step=1
+		fi
+	done
+
+	return $return_val
+}
 
 #todo make this script useable for everyone (-> publish it on github)
 
@@ -20,27 +48,10 @@ wget $COREOS_INSTALL_SCRIPT_URL -O $COREOS_INSTALL_SCRIPT_NAME
 chmod +x $COREOS_INSTALL_SCRIPT_PATH
 
 
-repeate_step=1
+ask_user_yes_no "do you want to configure this coreos installation with the wizzard (y), or do you want to provide a custom cloud-config file (n)?"
+user_wants_wizzard=$?
 
-while $repeate_step -eq 1
-do
-	echo "do you want to configure this coreos installation with the wizzard (y), or do you want to provide a custom cloud-config file (n)? "
-	read user_wants_wizzard
-
-	if [ "$user_wants_wizzard" -eq "y" ]
-		then
-		repeate_step=0
-	elif [ "$user_wants_wizzard" -eq "n" ]
-		then
-		repeate_step=0
-	else
-		echo "Unrecognized answer. Please enter y or n!"
-		repeate_step=1
-	fi
-done
-
-
-if [ "$user_wants_wizzard" -eq "y" ]
+if [ $user_wants_wizzard -eq 1 ];
 	then
 	# create cloudinit file
 	echo "#cloud-config" > $CLOUD_CONFIG_FILE_PATH
@@ -128,27 +139,12 @@ fi
 #todo provide user with ability to edit file (using vim) nad revalidating it after that again
 
 
-repeate_step=1
-
-while $repeate_step -eq 1
-do
-	echo "Would you like to proceed with the instalation? (y/n) "
-	read user_wants_installation
-	
-	if [ "$user_wants_installation" -eq "y" ]
-		then
-		repeate_step=0
-	elif [ "$user_wants_installation" -eq "n" ]
-		then
-		repeate_step=0
-	else
-		echo "Unrecognized answer. Please enter y or n!"
-		repeate_step=1
-	fi
-done
+ask_user_yes_no "Would you like to proceed with the instalation?"
+user_wants_installation=$?
 
 
-if [ "$user_wants_installation" -eq "y" ]
+
+if [ $user_wants_installation -eq 1 ];
 	then
 	# install
 
