@@ -85,17 +85,12 @@ if [ $user_wants_wizzard -eq 1 ];
 	echo "enter your domain: "
 	read DOMAIN
 
+	echo "enter hostname: "
+	read HOSTNAME
+	echo "hostname: \"$HOSTNAME\"" >> $CLOUD_CONFIG_FILE_PATH
 
-	echo "manage-resolv-conf: true" >> $CLOUD_CONFIG_FILE_PATH
-	echo "resolv_conf:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  nameservers: ['127.0.0.1','8.8.8.8','8.8.4.4']" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  searchdomains:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    - $DOMAIN" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  domain: $DOMAIN" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  options:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    timeout: 1"
 
-	# todo ask if dhcp
+	nework_unit_content=""
 
 	# see https://coreos.com/os/docs/latest/network-config-with-networkd.html
 	# ipv4
@@ -108,26 +103,68 @@ if [ $user_wants_wizzard -eq 1 ];
 	echo "enter the network (ipv4) gateway: "
 	read IPV4_GATEWAY
 
-
-	# ipv6
-	echo "enter this machines ipv6 address: "
-	read IPV6_ADDR
-
-	echo "enter the network (ipv6) prefix length: "
-	read IPV6_CIDR
-
-	echo "enter the network (ipv6) gateway: "
-	read IPV6_GATEWAY
+	echo "enter the network (ipv4) dns: "
+	read IPV4_DNS
 
 
-	# package management
-	echo "setup package management"
-	echo "package_upgrade: true" >> $CLOUD_CONFIG_FILE_PATH
+	nework_unit_content="[Match]
+Name=eth0
+
+[Network]
+DNS=${IPV4_DNS}
+Address=${IPV4_ADDR}/${IPV4_CIDR}
+Gateway=${IPV4_GATEWAY}"
+
+	ask_user_yes_no "do you also want to setup IPv6 network?"
+	user_wants_ipv6=$?
+
+	if [ $user_wants_ipv6 -eq 1 ];
+		then
+		# ipv6
+		echo "enter this machines ipv6 address: "
+		read IPV6_ADDR
+
+		echo "enter the network (ipv6) prefix length: "
+		read IPV6_CIDR
+
+		echo "enter the network (ipv6) gateway: "
+		read IPV6_GATEWAY
+
+		nework_unit_content="$nework_unit_content
+Address=${IPV6_ADDR}/${IPV6_CIDR}
+Gateway=${IPV6_GATEWAY}"
+#todo add route
+	fi
+
+	echo "coreos:" >> $CLOUD_CONFIG_FILE_PATH
+	echo "  units:" >> $CLOUD_CONFIG_FILE_PATH
+	echo "    - name: systemd-networkd.service" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      command: stop" >> $CLOUD_CONFIG_FILE_PATH
+	echo "    - name: 00-eth0.network" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      runtime: true" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      content: |" >> $CLOUD_CONFIG_FILE_PATH
+	printf "$nework_unit_content\n" | awk '$0="        "$0' >> $CLOUD_CONFIG_FILE_PATH  # prefixed content of file
+	echo "    - name: down-interfaces.service" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      command: start" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      content: |" >> $CLOUD_CONFIG_FILE_PATH
+	echo "        [Service]" >> $CLOUD_CONFIG_FILE_PATH
+	echo "        Type=oneshot" >> $CLOUD_CONFIG_FILE_PATH
+	echo "        ExecStart=/usr/bin/ip link set eth0 down" >> $CLOUD_CONFIG_FILE_PATH
+	echo "        ExecStart=/usr/bin/ip addr flush dev eth0" >> $CLOUD_CONFIG_FILE_PATH
+	echo "    - name: systemd-networkd.service" >> $CLOUD_CONFIG_FILE_PATH
+	echo "      command: restart" >> $CLOUD_CONFIG_FILE_PATH
+
+
+
+	# todo ssh config!
+
+	# ectd config
+	# get token: https://discovery.etcd.io/new?size=1
 else
 	echo "enter the path to your custom cloud-config file: "
 	read custom_cloud_config_file_path
 
-	cp custom_cloud_config_file_path $CLOUD_CONFIG_FILE_PATH
+	cp $custom_cloud_config_file_path $CLOUD_CONFIG_FILE_PATH
 fi
 
 
@@ -147,7 +184,6 @@ fi
 
 ask_user_yes_no "Would you like to proceed with the instalation?"
 user_wants_installation=$?
-
 
 
 if [ $user_wants_installation -eq 1 ];
