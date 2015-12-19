@@ -23,11 +23,13 @@
 # SOFTWARE. 
 #
 
+
 TMP_DIR_PATH="$(readlink -f .)/coreos_install"
 COREOS_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/coreos/init/master/bin/coreos-install"
 COREOS_INSTALL_SCRIPT_NAME="coreos-install"
 COREOS_INSTALL_SCRIPT_PATH="$TMP_DIR_PATH/$COREOS_INSTALL_SCRIPT_NAME"
 CLOUD_CONFIG_FILE_PATH="$TMP_DIR_PATH/cloud-config-file"
+
 
 
 # functions
@@ -59,6 +61,19 @@ function ask_user_yes_no {
 }
 
 
+
+indent_line() {
+	local stdin_val=0
+	local indentation_level=$1
+	local indentation_str=$(printf "%${indentation_level}s%${indentation_level}s")
+	while IFS= read -r line; do
+	  echo $line | awk "\$0=\"$indentation_str\"\$0"
+	done
+}
+
+
+
+
 # check if root
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root" 1>&2
@@ -83,7 +98,7 @@ user_wants_wizzard=$?
 if [ $user_wants_wizzard -eq 1 ];
 	then
 	# create cloudinit file
-	echo "#cloud-config" > $CLOUD_CONFIG_FILE_PATH
+	echo "#cloud-config" | indent_line 0 > $CLOUD_CONFIG_FILE_PATH
 	echo "" >> $CLOUD_CONFIG_FILE_PATH
 
 	# users
@@ -94,12 +109,12 @@ if [ $user_wants_wizzard -eq 1 ];
 	echo "Setup password for user $USERNAME:"
 	PASSWORD=$(openssl passwd -1)
 
-	echo "users:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  - name: $USERNAME" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    passwd: $PASSWORD" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    groups:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      - sudo" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      - docker" >> $CLOUD_CONFIG_FILE_PATH
+	echo "users:" | indent_line 0 >> $CLOUD_CONFIG_FILE_PATH
+	echo "- name: $USERNAME" | indent_line 1 >> $CLOUD_CONFIG_FILE_PATH
+	printf "passwd: %s\n" $PASSWORD | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "groups:" | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "- sudo" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	echo "- docker" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
 
 
 	# network setup
@@ -110,7 +125,7 @@ if [ $user_wants_wizzard -eq 1 ];
 
 	echo "enter hostname: "
 	read HOSTNAME
-	echo "hostname: \"$HOSTNAME\"" >> $CLOUD_CONFIG_FILE_PATH
+	printf "hostname: \"%s\"\n" $HOSTNAME | indent_line 0 >> $CLOUD_CONFIG_FILE_PATH
 
 
 	nework_unit_content=""
@@ -159,23 +174,28 @@ Gateway=${IPV6_GATEWAY}"
 #todo add route
 	fi
 
-	echo "coreos:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "  units:" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    - name: systemd-networkd.service" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      command: stop" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    - name: 00-eth0.network" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      runtime: true" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      content: |" >> $CLOUD_CONFIG_FILE_PATH
-	printf "$nework_unit_content\n" | awk '$0="        "$0' >> $CLOUD_CONFIG_FILE_PATH  # prefixed content of file
-	echo "    - name: down-interfaces.service" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      command: start" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      content: |" >> $CLOUD_CONFIG_FILE_PATH
-	echo "        [Service]" >> $CLOUD_CONFIG_FILE_PATH
-	echo "        Type=oneshot" >> $CLOUD_CONFIG_FILE_PATH
-	echo "        ExecStart=/usr/bin/ip link set eth0 down" >> $CLOUD_CONFIG_FILE_PATH
-	echo "        ExecStart=/usr/bin/ip addr flush dev eth0" >> $CLOUD_CONFIG_FILE_PATH
-	echo "    - name: systemd-networkd.service" >> $CLOUD_CONFIG_FILE_PATH
-	echo "      command: restart" >> $CLOUD_CONFIG_FILE_PATH
+	echo "coreos:" | indent_line 0 >> $CLOUD_CONFIG_FILE_PATH
+	echo "units:" | indent_line 1 >> $CLOUD_CONFIG_FILE_PATH
+	
+	echo "- name: systemd-networkd.service" | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "command: stop" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	
+	echo "- name: 00-eth0.network" | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "runtime: true" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	echo "content: |" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	printf "$nework_unit_content\n" | indent_line 4 >> $CLOUD_CONFIG_FILE_PATH 
+	
+	echo "- name: down-interfaces.service" | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "command: start" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	echo "content: |" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+	echo "[Service]
+Type=oneshot
+ExecStart=/usr/bin/ip link set eth0 down
+ExecStart=/usr/bin/ip addr flush dev eth0" | indent_line 4 >> $CLOUD_CONFIG_FILE_PATH
+	
+	echo "- name: systemd-networkd.service" | indent_line 2 >> $CLOUD_CONFIG_FILE_PATH
+	echo "command: restart" | indent_line 3 >> $CLOUD_CONFIG_FILE_PATH
+
 
 
 
@@ -213,8 +233,8 @@ if [ $user_wants_installation -eq 1 ];
 	then
 	# install
 
-	# todo let the user choose the version of coreos (version, install type, chanel, etc...) to install
-	echo "start instalation"
+	# todo let the user choose the version of coreos (version, install type, chanel, etc...) and where to install
+	echo "start installation"
 	$COREOS_INSTALL_SCRIPT_PATH -d /dev/sda -V current -C stable  -c $CLOUD_CONFIG_FILE_PATH
 
 else
